@@ -1,42 +1,57 @@
-import gzip
-import os
-import glob
-from typing import Union, List, Dict, Generator
+import sys
+from dotenv import load_dotenv
+from Postfix.AMAVIS.parser import parse_amavis_log_line
+from Postfix.SMTP.parser import parse_smtp_log_line
+from Postfix.models import QmgrLog, SmtpdLog, AmavisLog, SmtpLog
+from database import DatabaseManager
+from log_reader import LogFileReader
+from parsers import parse_smtpd_log_line, parse_postfix_log_line
 
 
-# TODO: make this possible to be passed as parameter
-LOG_DIR = "/var/log/"
+def main():
+    load_dotenv()
+    processed_count = int(0)
 
-# TODO: make this possible to be passed as parameter, the users might want a limited area of logs
-LOG_PATTERNS = ["mail.log", "imap.log"]
+    db_manager = DatabaseManager()
+    log_reader = LogFileReader()
 
-def open_log_file(filepath: str) -> Generator[str, None, None]:
-    """
-    Opens a plain or gzipped log file and yields lines.
-    """
-    if not isinstance(filepath, str):
-        raise TypeError("Expected 'filepath' to be string.")
+    try:
+        with open("unparsed.txt", "wt", encoding='utf-8') as unparsed_file:
+            db_manager.create_tables()
 
-    if filepath.endswith(".gz"): 
-        with gzip.open(filepath, "rt", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                yield line
-    else:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                yield line
+            for line in log_reader.read_all_logs():
+                if "roundcube" not in line and "SSL_" not in line:
+                    try:
+                        log_entry = parse_postfix_log_line(line)
+
+                        if log_entry is None:
+                            unparsed_file.write(line + "\n")
+                            print(line)
+                        else:
+                            db_manager.add_to_buffer(log_entry)
+                            processed_count += 1
+                            if processed_count % 10000 == 0:
+                                print(f"Processed {processed_count} log entries...")
+                    except Exception as e:
+                        unparsed_file.write(f"Error processing line: {e} | Line: {line}\n")
 
 
-def find_log_files(directory: str, patterns: List[str]) -> List[str]:
-    """
-    Finds logs files based on given patterns.
-    """
-    if not isinstance(directory, str):
-        raise TypeError("Expected 'directory' to be a string.")
-    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
-        raise TypeError("Expected 'patterns' to be a list of strings.")
-    
-    result = []
-    for pattern in patterns:
-        result.extend(glob.glob(os.path.join(directory, pattern)))
-    return sorted(result)
+            print("Flushing remaining buffers...")
+            db_manager.flush_all_buffers()
+
+            print(f"Processing complete!")
+            print(f"Processed: {processed_count} log entries")
+
+    except KeyboardInterrupt:
+        print("\nProcessing interrupted by user")
+        print("Flushing buffers before exit...")
+        db_manager.flush_all_buffers()
+        sys.exit(1)
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        db_manager.flush_all_buffers()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
