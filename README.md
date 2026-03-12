@@ -9,6 +9,7 @@ LogWaver is a Python tool for parsing and analyzing Postfix, IMAP, and Roundcube
 
 ## How to get ?
 ```bash
+sudo apt install -y libpq-dev python3-dev build-essential
 wget https://github.com/UngureanuOvidiu-Costin/LogWaver/archive/main.zip
 7z x main.zip
 cd LogWaver-main/Parser
