@@ -17,4 +17,16 @@ python3 -m venv venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 nano .env  # To edit the log path
+# Install docker and docker compose first: https://docs.docker.com/engine/install/ubuntu/
+# This is just for an easy database setup
+docker compose up -d
 ```
+
+## How to use ?
+- Connect to the database: `psql -h localhost -d postfix_logs -U postfix_user # default password is secure_password_123`
+- View the tables: `\dt`
+- View the columns of tabe `smtpd_logs`: `\d+ smtpd_logs`
+- Check for spoofing: `select * from amavis_logs where sender <> from_address;`
+
+## Email flow
+smtpd -> qmgr -> smtp -> amavis(+spam assasin) -> smtpd -> qmgr -> smtp
