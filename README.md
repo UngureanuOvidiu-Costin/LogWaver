@@ -30,3 +30,7 @@ docker compose up -d
 
 ## Email flow
 smtpd -> qmgr -> smtp -> amavis(+spam assasin) -> smtpd -> qmgr -> smtp
+
+## Documentation
+- [Postfix architecture](https://paulgorman.org/technical/postfix.txt.html)
+- [The Book of Postfix](https://theswissbay.ch/pdf/Gentoomen%20Library/Operating%20Systems/Linux/Mail%20Servers/No%20Starch%20Press%20-%20The%20Book%20of%20Postfix.pdf)
